@@ -1,0 +1,24 @@
+services:
+  app:
+    build: .
+    ports: ["3000:3000"]
+    env_file: .env
+    depends_on: [postgres, redis]
+    environment:
+      DATABASE_URL: postgresql://bookmarks:bookmarks@postgres:5432/bookmarks
+      REDIS_URL: redis://redis:6379
+  postgres:
+    image: pgvector/pgvector:pg17
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    environment:
+      POSTGRES_DB: bookmarks
+      POSTGRES_USER: bookmarks
+      POSTGRES_PASSWORD: bookmarks
+    ports: ["5432:5432"]
+  redis:
+    image: redis:7-alpine
+    volumes: ["redisdata:/data"]
+    ports: ["6379:6379"]
+volumes:
+  pgdata:
+  redisdata:

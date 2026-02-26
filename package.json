@@ -1,0 +1,21 @@
+{
+  "name": "ai-bookmark-manager",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "db:generate": "pnpm --filter @stash/db generate",
+    "db:migrate": "pnpm --filter @stash/db migrate",
+    "db:push": "pnpm --filter @stash/db push"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

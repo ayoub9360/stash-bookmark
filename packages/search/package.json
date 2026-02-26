@@ -1,0 +1,30 @@
+{
+  "name": "@stash/search",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@stash/db": "workspace:*",
+    "@stash/shared": "workspace:*",
+    "@stash/ai": "workspace:*",
+    "drizzle-orm": "^0.38.0",
+    "openai": "^4.77.0",
+    "postgres": "^3.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
