@@ -3,22 +3,30 @@ services:
     build: .
     ports: ["3000:3000"]
     env_file: .env
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     environment:
-      DATABASE_URL: postgresql://bookmarks:bookmarks@postgres:5432/bookmarks
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bookmarks}:${POSTGRES_PASSWORD:-bookmarks}@postgres:5432/${POSTGRES_DB:-bookmarks}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379
   postgres:
     image: pgvector/pgvector:pg17
     volumes: ["pgdata:/var/lib/postgresql/data"]
     environment:
-      POSTGRES_DB: bookmarks
-      POSTGRES_USER: bookmarks
-      POSTGRES_PASSWORD: bookmarks
-    ports: ["5432:5432"]
+      POSTGRES_DB: ${POSTGRES_DB:-bookmarks}
+      POSTGRES_USER: ${POSTGRES_USER:-bookmarks}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bookmarks}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bookmarks} -d ${POSTGRES_DB:-bookmarks}"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-changeme}"]
     volumes: ["redisdata:/data"]
-    ports: ["6379:6379"]
 volumes:
   pgdata:
   redisdata:
