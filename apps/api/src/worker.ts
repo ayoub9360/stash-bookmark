@@ -2,8 +2,8 @@ import { Worker } from "bullmq";
 import IORedis from "ioredis";
 import OpenAI from "openai";
 import { eq, sql } from "drizzle-orm";
-import { bookmarks, type Database } from "@stash/db";
-import { fetchAndParse } from "@stash/parser";
+import { bookmarks, collections, bookmarkCollections, type Database } from "@stash/db";
+import { fetchAndParse, sanitize } from "@stash/parser";
 import { analyzeContent, generateEmbedding } from "@stash/ai";
 
 export function initWorker(db: Database) {
@@ -35,7 +35,7 @@ export function initWorker(db: Database) {
             title: parsed.title,
             description: parsed.description,
             content: parsed.content,
-            html_snapshot: parsed.html,
+            html_snapshot: parsed.html ? sanitize(parsed.html) : null,
             favicon_url: parsed.favicon_url,
             og_image_url: parsed.og_image_url,
             domain: parsed.domain,
@@ -47,6 +47,10 @@ export function initWorker(db: Database) {
           .where(eq(bookmarks.id, bookmarkId));
 
         await job.updateProgress(40);
+
+        // Track enriched data from LLM (used later for embedding)
+        let summary: string | null = null;
+        let enrichedTags: string[] = [];
 
         // Step 2: LLM analysis (if content available and API key present)
         if (parsed.content && process.env.OPENAI_API_KEY) {
@@ -68,17 +72,49 @@ export function initWorker(db: Database) {
               .limit(1);
 
             const existingTags = existingBookmark[0]?.tags ?? [];
-            const mergedTags = [...new Set([...existingTags, ...analysis.tags])];
+            enrichedTags = [...new Set([...existingTags, ...analysis.tags])];
+            summary = analysis.summary;
 
             await db
               .update(bookmarks)
               .set({
                 summary: analysis.summary,
                 category: analysis.category,
-                tags: mergedTags,
+                tags: enrichedTags,
                 updated_at: new Date(),
               })
               .where(eq(bookmarks.id, bookmarkId));
+
+            // Auto-assign to collection based on category
+            if (analysis.category && analysis.category !== "Other") {
+              try {
+                // Find or create the collection
+                let collection = await db
+                  .select({ id: collections.id })
+                  .from(collections)
+                  .where(eq(collections.name, analysis.category))
+                  .limit(1);
+
+                let collectionId: string;
+                if (collection.length === 0) {
+                  const [created] = await db
+                    .insert(collections)
+                    .values({ name: analysis.category })
+                    .returning({ id: collections.id });
+                  collectionId = created!.id;
+                } else {
+                  collectionId = collection[0]!.id;
+                }
+
+                // Add bookmark to collection (ignore if already exists)
+                await db
+                  .insert(bookmarkCollections)
+                  .values({ bookmark_id: bookmarkId, collection_id: collectionId })
+                  .onConflictDoNothing();
+              } catch (err) {
+                console.error(`Auto-collection failed for ${bookmarkId}:`, err);
+              }
+            }
 
             await job.updateProgress(70);
           } catch (err) {
@@ -86,14 +122,25 @@ export function initWorker(db: Database) {
             // Continue — bookmark still saved without summary/tags
           }
 
-          // Step 3: Generate embedding
+          // Step 3: Generate embedding AFTER LLM so we embed enriched content
+          // Priority order: title > summary > tags > domain > description > content
+          // (truncated to 8000 chars in generateEmbedding — most important signals first)
           try {
-            const textToEmbed = `${parsed.title ?? ""} ${parsed.description ?? ""} ${parsed.content}`;
+            const embeddingParts = [
+              parsed.title,
+              summary,
+              enrichedTags.length > 0 ? enrichedTags.join(", ") : null,
+              parsed.domain,
+              parsed.description,
+              parsed.content,
+            ].filter(Boolean);
+
+            const textToEmbed = embeddingParts.join(" — ");
             const embedding = await generateEmbedding(openai, textToEmbed);
             const vectorStr = `[${embedding.join(",")}]`;
 
             await db.execute(
-              sql`UPDATE bookmarks SET embedding = ${sql.raw(`'${vectorStr}'::vector`)} WHERE id = ${bookmarkId}`,
+              sql`UPDATE bookmarks SET embedding = ${vectorStr}::vector WHERE id = ${bookmarkId}`,
             );
 
             await job.updateProgress(90);
@@ -102,9 +149,18 @@ export function initWorker(db: Database) {
           }
         }
 
-        // Update search vector
+        // Step 4: Build weighted search vector
+        // A (highest weight): title, tags — the primary identifiers
+        // B: summary, description — concise metadata
+        // C: domain, url (tokenized) — source identity
+        // D (lowest weight): full content — broad matching
         await db.execute(
-          sql`UPDATE bookmarks SET search_vector = to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(content, '')) WHERE id = ${bookmarkId}`,
+          sql`UPDATE bookmarks SET search_vector =
+              setweight(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(array_to_string(tags, ' '), '')), 'A') ||
+              setweight(to_tsvector('english', coalesce(summary, '') || ' ' || coalesce(description, '')), 'B') ||
+              setweight(to_tsvector('english', coalesce(domain, '') || ' ' || regexp_replace(coalesce(url, ''), '[/:._\\-]+', ' ', 'g')), 'C') ||
+              setweight(to_tsvector('english', coalesce(content, '')), 'D')
+            WHERE id = ${bookmarkId}`,
         );
 
         // Mark as completed

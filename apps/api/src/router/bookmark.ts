@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, desc, asc, and, sql } from "drizzle-orm";
+import { eq, desc, asc, and, sql, gte, lte } from "drizzle-orm";
 import { bookmarks } from "@stash/db";
 import {
   createBookmarkSchema,
@@ -10,6 +10,31 @@ import { router, protectedProcedure } from "../trpc.js";
 import { addBookmarkJob } from "../queue.js";
 
 export const bookmarkRouter = router({
+  filterOptions: protectedProcedure.query(async ({ ctx }) => {
+    const [tagsResult, domainsResult] = await Promise.all([
+      ctx.db
+        .select({ tag: sql<string>`unnest(${bookmarks.tags})` })
+        .from(bookmarks)
+        .where(sql`array_length(${bookmarks.tags}, 1) > 0`)
+        .groupBy(sql`unnest(${bookmarks.tags})`)
+        .orderBy(sql`unnest(${bookmarks.tags})`),
+      ctx.db
+        .select({
+          domain: bookmarks.domain,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(bookmarks)
+        .where(sql`${bookmarks.domain} IS NOT NULL`)
+        .groupBy(bookmarks.domain)
+        .orderBy(desc(sql`count(*)`)),
+    ]);
+
+    return {
+      tags: tagsResult.map((r) => r.tag),
+      domains: domainsResult as { domain: string; count: number }[],
+    };
+  }),
+
   list: protectedProcedure.input(bookmarkListQuerySchema).query(async ({ ctx, input }) => {
     const conditions = [];
 
@@ -22,16 +47,16 @@ export const bookmarkRouter = router({
     if (input.is_favorite !== undefined) {
       conditions.push(eq(bookmarks.is_favorite, input.is_favorite));
     }
-    if (input.is_archived !== undefined) {
-      conditions.push(eq(bookmarks.is_archived, input.is_archived));
-    }
-    if (input.is_read !== undefined) {
-      conditions.push(eq(bookmarks.is_read, input.is_read));
-    }
     if (input.tags && input.tags.length > 0) {
       conditions.push(
-        sql`${bookmarks.tags} && ${sql.raw(`ARRAY[${input.tags.map((t) => `'${t}'`).join(",")}]::text[]`)}`,
+        sql`${bookmarks.tags} && ${input.tags}::text[]`,
       );
+    }
+    if (input.created_after) {
+      conditions.push(gte(bookmarks.created_at, new Date(input.created_after)));
+    }
+    if (input.created_before) {
+      conditions.push(lte(bookmarks.created_at, new Date(input.created_before)));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -54,8 +79,6 @@ export const bookmarkRouter = router({
           category: bookmarks.category,
           tags: bookmarks.tags,
           is_favorite: bookmarks.is_favorite,
-          is_archived: bookmarks.is_archived,
-          is_read: bookmarks.is_read,
           processing_status: bookmarks.processing_status,
           created_at: bookmarks.created_at,
           updated_at: bookmarks.updated_at,
@@ -134,31 +157,4 @@ export const bookmarkRouter = router({
       return updated;
     }),
 
-  toggleArchive: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      const [updated] = await ctx.db
-        .update(bookmarks)
-        .set({
-          is_archived: sql`NOT ${bookmarks.is_archived}`,
-          updated_at: new Date(),
-        })
-        .where(eq(bookmarks.id, input.id))
-        .returning();
-      return updated;
-    }),
-
-  toggleRead: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      const [updated] = await ctx.db
-        .update(bookmarks)
-        .set({
-          is_read: sql`NOT ${bookmarks.is_read}`,
-          updated_at: new Date(),
-        })
-        .where(eq(bookmarks.id, input.id))
-        .returning();
-      return updated;
-    }),
 });
