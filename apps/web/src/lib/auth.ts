@@ -1,17 +1,22 @@
-const STORAGE_KEY = "stash-password";
+const SESSION_KEY = "stash-logged-in";
 
-export function getPassword(): string | null {
-  return localStorage.getItem(STORAGE_KEY);
+/**
+ * Lightweight client-side flag to avoid flashing the login page.
+ * The actual auth is verified server-side via the httpOnly cookie.
+ * This flag stores no secrets — just a boolean "logged in" indicator.
+ */
+export function getLoggedIn(): boolean {
+  return localStorage.getItem(SESSION_KEY) === "true";
 }
 
-export function setPassword(password: string): void {
-  localStorage.setItem(STORAGE_KEY, password);
+export function setLoggedIn(): void {
+  localStorage.setItem(SESSION_KEY, "true");
 }
 
-export function clearPassword(): void {
-  localStorage.removeItem(STORAGE_KEY);
+export function clearLoggedIn(): void {
+  localStorage.removeItem(SESSION_KEY);
 }
 
 export function isLoggedIn(): boolean {
-  return !!getPassword();
+  return getLoggedIn();
 }

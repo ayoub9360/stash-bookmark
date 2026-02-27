@@ -11,20 +11,15 @@ function getBaseUrl() {
   return "http://localhost:3000";
 }
 
-function getAuthToken() {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("stash-password") ?? "";
-  }
-  return "";
-}
-
 export const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
       url: `${getBaseUrl()}/api/trpc`,
-      headers() {
-        const token = getAuthToken();
-        return token ? { Authorization: `Bearer ${token}` } : {};
+      fetch(url, options) {
+        return fetch(url, {
+          ...options,
+          credentials: "include",
+        });
       },
     }),
   ],

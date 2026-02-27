@@ -4,13 +4,22 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 import { trpc, trpcClient } from "./lib/trpc";
+import { clearLoggedIn } from "./lib/auth";
 import "./app.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        // Don't retry auth errors — redirect to login
+        if (error?.data?.code === "UNAUTHORIZED") {
+          clearLoggedIn();
+          window.location.href = "/login";
+          return false;
+        }
+        return failureCount < 1;
+      },
     },
   },
 });
