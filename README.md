@@ -1,25 +1,54 @@
 # Stash — AI Bookmark Manager
 
-An intelligent bookmark manager: paste a link, it does the rest. Content parsing, metadata extraction, auto-categorization, and natural language search via hybrid RAG.
+An intelligent, self-hosted bookmark manager. Paste a link, it does the rest: content parsing, metadata extraction, LLM-powered summarization & categorization, and natural language search via hybrid RAG.
 
-## Quick Start (Docker)
+**No accounts. No tracking. Your data stays on your machine.**
+
+![Dashboard](assets/screen-homepage.png)
+
+![Bookmarks](assets/screen-bookmarks.png)
+
+## Features
+
+- **Automatic analysis** — Paste a URL and Stash fetches the content, extracts metadata (title, favicon, OG image, reading time, language), summarizes it with an LLM, auto-assigns categories & tags, and generates a vector embedding for semantic search.
+- **Hybrid search** — Combines pgvector cosine similarity (semantic) + PostgreSQL tsvector (keyword) with Reciprocal Rank Fusion. Search in natural language or with keywords — it handles both.
+- **Reader mode** — Parsed article content displayed in a clean, readable format.
+- **Organization** — Categories (auto or manual), tags, favorites, archive, read/unread status.
+- **Dark mode** — Dark by default, light mode available.
+- **Single-tenant** — No user system. One password in `.env`, one instance, full control.
+- **Self-hosted** — One `docker compose up` and you're running.
+
+## Quick Start
 
 ```bash
+git clone https://github.com/ayoub9360/stash.git
+cd stash
 cp .env.example .env
-# Edit .env with your OpenAI API key and password
+```
+
+Edit `.env` with your settings:
+
+```env
+PASSWORD=your-secret-password
+OPENAI_API_KEY=sk-your-openai-key
+REDIS_PASSWORD=your-redis-password
+```
+
+Then:
+
+```bash
 docker compose up
 ```
 
-Open http://localhost:3000 and enter your password.
+Open [http://localhost:3000](http://localhost:3000) and enter your password.
 
-## Development
+## Development Setup
 
 ### Prerequisites
 
-- Node.js 20+
-- pnpm 9+
-- PostgreSQL with pgvector extension
-- Redis
+- [Node.js](https://nodejs.org/) 20+
+- [pnpm](https://pnpm.io/) 9+
+- [Docker](https://www.docker.com/) (for PostgreSQL + Redis)
 
 ### Setup
 
@@ -27,69 +56,114 @@ Open http://localhost:3000 and enter your password.
 # Install dependencies
 pnpm install
 
-# Start PostgreSQL and Redis (via Docker)
+# Start PostgreSQL (with pgvector) and Redis
 docker compose up postgres redis -d
 
-# Set up environment
+# Configure environment
 cp .env.example .env
-# Edit DATABASE_URL to point to localhost
+# Edit .env — set DATABASE_URL to localhost:
+#   DATABASE_URL=postgresql://bookmarks:bookmarks@localhost:5432/bookmarks
 
 # Push database schema
 pnpm db:push
 
-# Start development
+# Start dev servers (frontend + backend)
 pnpm dev
 ```
 
-Frontend: http://localhost:5173
-API: http://localhost:3000
+- Frontend: [http://localhost:5173](http://localhost:5173)
+- API: [http://localhost:3000](http://localhost:3000)
 
 ## Architecture
 
 ```
-ai-bookmark-manager/
+stash/
 ├── apps/
-│   ├── web/          # React (Vite) + shadcn/ui frontend
-│   └── api/          # Express.js + tRPC backend
+│   ├── web/            React 19 + Vite + shadcn/ui + TanStack Router
+│   └── api/            Express.js + tRPC + BullMQ workers
 ├── packages/
-│   ├── db/           # Drizzle ORM + PostgreSQL schema
-│   ├── shared/       # Shared types, utils, zod schemas
-│   ├── parser/       # URL fetching + content parsing
-│   ├── ai/           # LLM summarization + embeddings
-│   └── search/       # Hybrid search (pgvector + tsvector)
-├── docker-compose.yml
-└── Dockerfile
+│   ├── db/             Drizzle ORM + PostgreSQL schema + migrations
+│   ├── shared/         Shared types, Zod schemas, utils
+│   ├── parser/         URL fetching + content parsing (Readability + Cheerio)
+│   ├── ai/             LLM summarization/categorization + embeddings (OpenAI)
+│   └── search/         Hybrid search (pgvector + tsvector + RRF)
+├── docker-compose.yml  PostgreSQL + Redis + app
+├── Dockerfile          Multi-stage production build
+└── turbo.json          Turborepo pipeline config
 ```
 
-## Bookmark Processing Pipeline
+### Bookmark Processing Pipeline
+
+When you add a URL, an async BullMQ job processes it through this pipeline:
 
 ```
-URL → Fetch HTML → Parse (Readability) → Extract Metadata →
-LLM Summarize + Categorize + Tag → Generate Embedding → Store
+URL added
+  → Fetch HTML
+  → Parse with Mozilla Readability
+  → Extract metadata (title, description, favicon, OG tags, domain, language, reading time)
+  → LLM: summarize + categorize + auto-tag (gpt-4o-mini)
+  → Generate vector embedding (text-embedding-3-small)
+  → Store everything in PostgreSQL
 ```
 
-Processing is async via BullMQ + Redis. If the LLM step fails, the bookmark is still saved with parsed content.
+Each step retries independently. If the LLM fails (rate limit, API down), the bookmark is still saved with its parsed content — the AI analysis just won't be available.
 
-## Search
+### Hybrid Search
 
-Hybrid search combining:
-1. **Semantic search** — pgvector cosine similarity on OpenAI embeddings
-2. **Keyword search** — PostgreSQL tsvector full-text search
-3. **Reciprocal Rank Fusion** — merges both result sets
+Search combines two strategies and merges them with Reciprocal Rank Fusion:
+
+1. **Semantic search** — The query is embedded and compared against bookmark embeddings using pgvector cosine similarity.
+2. **Keyword search** — PostgreSQL full-text search using tsvector/tsquery.
+3. **RRF merge** — Both result sets are fused to produce a final ranked list.
+
+The search bar auto-detects whether you're typing a natural language query or a simple keyword filter.
 
 ## Tech Stack
 
-- **Frontend**: React 19, Vite, Tailwind v4, shadcn/ui, TanStack Router + Query
-- **Backend**: Express.js, tRPC, BullMQ
-- **Database**: PostgreSQL + pgvector + Drizzle ORM
-- **AI**: OpenAI (gpt-4o-mini, text-embedding-3-small)
-- **Infra**: Docker Compose, Turborepo, pnpm workspaces
+| Layer      | Technology                                                             |
+| ---------- | ---------------------------------------------------------------------- |
+| Frontend   | React 19, Vite 6, Tailwind CSS v4, shadcn/ui, TanStack Router + Query  |
+| Backend    | Express.js, tRPC (type-safe API)                                       |
+| Database   | PostgreSQL 17 + pgvector + Drizzle ORM                                 |
+| Queue      | BullMQ + Redis                                                         |
+| AI         | OpenAI — gpt-4o-mini (summarization), text-embedding-3-small (vectors) |
+| Monorepo   | Turborepo + pnpm workspaces                                            |
+| Deployment | Docker Compose (multi-stage build)                                     |
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `PASSWORD` | Login password (mono-tenant) |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `OPENAI_API_KEY` | OpenAI API key for LLM + embeddings |
+| Variable           | Required | Description                                                  |
+| ------------------ | -------- | ------------------------------------------------------------ |
+| `PASSWORD`         | Yes      | Login password (min 8 chars)                                 |
+| `OPENAI_API_KEY`   | Yes      | OpenAI API key for LLM + embeddings                         |
+| `REDIS_PASSWORD`   | No       | Redis password (default: `changeme`)                         |
+| `POSTGRES_PASSWORD`| No       | PostgreSQL password (default: `bookmarks`)                   |
+| `ALLOWED_ORIGINS`  | No       | Comma-separated CORS origins (default: `localhost:5173,3000`)|
+| `TRUST_PROXY`      | No       | Set to `1` if behind a reverse proxy (for rate limiting)     |
+| `SESSION_SECRET`   | No       | Secret for session token HMAC (defaults to `PASSWORD`)       |
+| `PORT`             | No       | Server port (default: `3000`)                                |
+
+## API
+
+The API uses [tRPC](https://trpc.io/) and is fully type-safe. All endpoints are under `/api/trpc`.
+
+Key procedures:
+
+| Procedure         | Type     | Description                                                        |
+| ----------------- | -------- | ------------------------------------------------------------------ |
+| `bookmark.list`   | query    | List bookmarks with filters (category, tags, status, domain, date) |
+| `bookmark.get`    | query    | Get a single bookmark with full content                            |
+| `bookmark.create` | mutation | Add a new bookmark by URL                                          |
+| `bookmark.update` | mutation | Update bookmark metadata (tags, category, favorite, read, archive) |
+| `bookmark.delete` | mutation | Delete a bookmark                                                  |
+| `bookmark.search` | query    | Hybrid search (semantic + keyword)                                 |
+
+Authentication: session is managed via httpOnly cookie (set on login). The API also accepts `Authorization: Bearer <PASSWORD>` header as fallback.
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a PR.
+
+## License
+
+[MIT](LICENSE)
