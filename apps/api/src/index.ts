@@ -33,7 +33,16 @@ async function main() {
   const app = express();
 
   // Middleware
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          "img-src": ["'self'", "data:", "https:", "http:"],
+        },
+      },
+    }),
+  );
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(",")
     : ["http://localhost:5173", "http://localhost:3000"];

@@ -50,8 +50,16 @@ export function extractMetadata(document: Document, baseUrl: string): ExtractedM
     }
   }
 
-  // OG Image
-  const og_image_url = getMetaContent("og:image") ?? null;
+  // OG Image — resolve relative URLs to absolute
+  let og_image_url: string | null = null;
+  const rawOgImage = getMetaContent("og:image") ?? getMetaContent("twitter:image") ?? null;
+  if (rawOgImage) {
+    try {
+      og_image_url = new URL(rawOgImage, baseUrl).href;
+    } catch {
+      og_image_url = null;
+    }
+  }
 
   // Language
   const language =
