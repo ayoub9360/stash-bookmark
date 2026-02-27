@@ -11,8 +11,6 @@ export const updateBookmarkSchema = z.object({
   category: z.string().nullable().optional(),
   tags: z.array(z.string()).optional(),
   is_favorite: z.boolean().optional(),
-  is_archived: z.boolean().optional(),
-  is_read: z.boolean().optional(),
 });
 
 export const searchQuerySchema = z.object({
@@ -21,8 +19,6 @@ export const searchQuerySchema = z.object({
   tags: z.array(z.string()).optional(),
   domain: z.string().optional(),
   is_favorite: z.boolean().optional(),
-  is_archived: z.boolean().optional(),
-  is_read: z.boolean().optional(),
   limit: z.number().int().min(1).max(100).default(20),
   offset: z.number().int().min(0).default(0),
 });
@@ -32,8 +28,8 @@ export const bookmarkListQuerySchema = z.object({
   tags: z.array(z.string()).optional(),
   domain: z.string().optional(),
   is_favorite: z.boolean().optional(),
-  is_archived: z.boolean().optional(),
-  is_read: z.boolean().optional(),
+  created_after: z.string().datetime().optional(),
+  created_before: z.string().datetime().optional(),
   sort_by: z.enum(["created_at", "updated_at", "title", "reading_time_min"]).default("created_at"),
   sort_order: z.enum(["asc", "desc"]).default("desc"),
   limit: z.number().int().min(1).max(100).default(20),
@@ -57,5 +53,5 @@ export const createCategorySchema = z.object({
 });
 
 export const loginSchema = z.object({
-  password: z.string().min(1),
+  password: z.string().min(8),
 });
