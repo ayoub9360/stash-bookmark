@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
+
+const WHITESPACE_RE = /\s+/g;
+const TAG_SEPARATOR_RE = /-/g;
+const WORD_START_RE = /\b\w/g;
 
 export const Route = createFileRoute("/add")({
   component: AddBookmarkPage,
@@ -16,9 +21,12 @@ function AddBookmarkPage() {
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const createBookmark = trpc.bookmark.create.useMutation({
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [["bookmark"]] });
+      queryClient.invalidateQueries({ queryKey: [["search"]] });
       navigate({ to: "/bookmarks" });
     },
   });
@@ -30,20 +38,20 @@ function AddBookmarkPage() {
   };
 
   const addTag = () => {
-    const tag = tagInput.trim().toLowerCase().replace(/\s+/g, "-");
-    if (tag && !tags.includes(tag)) {
-      setTags([...tags, tag]);
+    const tag = tagInput.trim().toLowerCase().replace(WHITESPACE_RE, "-");
+    if (tag) {
+      setTags((prev) => prev.includes(tag) ? prev : [...prev, tag]);
       setTagInput("");
     }
   };
 
   const removeTag = (tag: string) => {
-    setTags(tags.filter((t) => t !== tag));
+    setTags((prev) => prev.filter((t) => t !== tag));
   };
 
   return (
-    <div className="mx-auto max-w-lg">
-      <Card>
+    <div className="mx-auto max-w-lg min-h-[calc(100vh-3.5rem)] md:min-h-screen flex items-center">
+      <Card className="w-full">
         <CardHeader>
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <Bookmark className="h-6 w-6 text-primary" />
@@ -89,7 +97,7 @@ function AddBookmarkPage() {
                 <div className="flex flex-wrap gap-1 mt-2">
                   {tags.map((tag) => (
                     <Badge key={tag} variant="secondary" className="gap-1">
-                      {tag}
+                      {tag.replace(TAG_SEPARATOR_RE, " ").replace(WORD_START_RE, (c) => c.toUpperCase())}
                       <button type="button" onClick={() => removeTag(tag)}>
                         <X className="h-3 w-3" />
                       </button>

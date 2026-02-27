@@ -1,11 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Star, Archive, BookOpen, Trash2, Clock, Globe, Tag } from "lucide-react";
+import { ArrowLeft, ExternalLink, Star, Trash2, Clock, Globe, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
+
+const TAG_SEPARATOR_RE = /-/g;
+const WORD_START_RE = /\b\w/g;
+
+function formatTagLabel(tag: string): string {
+  return tag.replace(TAG_SEPARATOR_RE, " ").replace(WORD_START_RE, (c) => c.toUpperCase());
+}
 
 export const Route = createFileRoute("/bookmarks/$id")({
   component: BookmarkDetailPage,
@@ -16,14 +23,14 @@ function BookmarkDetailPage() {
   const navigate = useNavigate();
   const utils = trpc.useUtils();
 
-  const bookmark = trpc.bookmark.get.useQuery({ id });
+  const bookmark = trpc.bookmark.get.useQuery({ id }, {
+    refetchInterval: (query) => {
+      const status = query.state.data?.processing_status;
+      if (status === "pending" || status === "processing") return 2000;
+      return false;
+    },
+  });
   const toggleFav = trpc.bookmark.toggleFavorite.useMutation({
-    onSuccess: () => { utils.bookmark.get.invalidate({ id }); },
-  });
-  const toggleArchive = trpc.bookmark.toggleArchive.useMutation({
-    onSuccess: () => { utils.bookmark.get.invalidate({ id }); },
-  });
-  const toggleRead = trpc.bookmark.toggleRead.useMutation({
     onSuccess: () => { utils.bookmark.get.invalidate({ id }); },
   });
   const deleteBookmark = trpc.bookmark.delete.useMutation({
@@ -53,34 +60,28 @@ function BookmarkDetailPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <Link to="/bookmarks">
-          <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" className="flex-shrink-0 mt-1"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">{b.title ?? b.url}</h1>
-          <a href={b.url} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1">
-            {b.domain} <ExternalLink className="h-3 w-3" />
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold sm:text-2xl break-words">{b.title ?? b.url}</h1>
+          <a href={b.url} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1 max-w-full">
+            <span className="truncate">{b.domain}</span> <ExternalLink className="h-3 w-3 flex-shrink-0" />
           </a>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button variant={b.is_favorite ? "default" : "outline"} size="sm" onClick={() => toggleFav.mutate({ id })}>
-          <Star className={`h-4 w-4 ${b.is_favorite ? "fill-current" : ""}`} /> Favorite
-        </Button>
-        <Button variant={b.is_archived ? "default" : "outline"} size="sm" onClick={() => toggleArchive.mutate({ id })}>
-          <Archive className="h-4 w-4" /> Archive
-        </Button>
-        <Button variant={b.is_read ? "default" : "outline"} size="sm" onClick={() => toggleRead.mutate({ id })}>
-          <BookOpen className="h-4 w-4" /> {b.is_read ? "Read" : "Mark Read"}
+          <Star className={`h-4 w-4 ${b.is_favorite ? "fill-current" : ""}`} /> <span className="hidden sm:inline">Favorite</span>
         </Button>
         <div className="flex-1" />
         <Button variant="destructive" size="sm" onClick={() => {
           if (confirm("Delete this bookmark?")) deleteBookmark.mutate({ id });
         }}>
-          <Trash2 className="h-4 w-4" /> Delete
+          <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Delete</span>
         </Button>
       </div>
 
@@ -93,11 +94,11 @@ function BookmarkDetailPage() {
                 <Tag className="h-4 w-4 text-muted-foreground" /> {b.category}
               </div>
             )}
-            {b.reading_time_min && (
+            {b.reading_time_min != null ? (
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="h-4 w-4 text-muted-foreground" /> {b.reading_time_min} min read
               </div>
-            )}
+            ) : null}
             {b.language && (
               <div className="flex items-center gap-2 text-sm">
                 <Globe className="h-4 w-4 text-muted-foreground" /> {b.language}
@@ -120,7 +121,7 @@ function BookmarkDetailPage() {
             {b.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {b.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary">{tag}</Badge>
+                  <Badge key={tag} variant="secondary">{formatTagLabel(tag)}</Badge>
                 ))}
               </div>
             )}
@@ -128,19 +129,6 @@ function BookmarkDetailPage() {
         </Card>
       </div>
 
-      {/* Reader mode */}
-      {b.content && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Reader View</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="prose prose-invert max-w-none text-sm leading-relaxed whitespace-pre-wrap">
-              {b.content}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

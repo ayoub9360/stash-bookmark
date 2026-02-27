@@ -35,9 +35,9 @@ function CollectionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Collections</h1>
+        <h1 className="text-2xl font-bold sm:text-3xl">Collections</h1>
         <Button onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4" /> New Collection
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Collection</span><span className="sm:hidden">New</span>
         </Button>
       </div>
 
@@ -63,7 +63,7 @@ function CollectionsPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                  className="h-7 w-7 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                   onClick={() => {
                     if (confirm("Delete this collection?")) remove.mutate({ id: c.id });
                   }}

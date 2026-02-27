@@ -8,8 +8,6 @@ export const dashboardRouter = router({
       .select({
         total_bookmarks: sql<number>`count(*)::int`,
         total_favorites: sql<number>`count(*) filter (where ${bookmarks.is_favorite})::int`,
-        total_unread: sql<number>`count(*) filter (where not ${bookmarks.is_read})::int`,
-        total_archived: sql<number>`count(*) filter (where ${bookmarks.is_archived})::int`,
       })
       .from(bookmarks);
 
@@ -48,8 +46,6 @@ export const dashboardRouter = router({
         category: bookmarks.category,
         tags: bookmarks.tags,
         is_favorite: bookmarks.is_favorite,
-        is_archived: bookmarks.is_archived,
-        is_read: bookmarks.is_read,
         processing_status: bookmarks.processing_status,
         created_at: bookmarks.created_at,
         updated_at: bookmarks.updated_at,
@@ -61,8 +57,6 @@ export const dashboardRouter = router({
     return {
       total_bookmarks: totals?.total_bookmarks ?? 0,
       total_favorites: totals?.total_favorites ?? 0,
-      total_unread: totals?.total_unread ?? 0,
-      total_archived: totals?.total_archived ?? 0,
       top_domains: topDomains as { domain: string; count: number }[],
       top_categories: topCategories as { category: string; count: number }[],
       recent_bookmarks: recentBookmarks,

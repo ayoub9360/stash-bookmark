@@ -15,8 +15,6 @@ export interface Bookmark {
   category: string | null;
   tags: string[];
   is_favorite: boolean;
-  is_archived: boolean;
-  is_read: boolean;
   processing_status: ProcessingStatus;
   created_at: string;
   updated_at: string;
@@ -54,8 +52,6 @@ export interface PaginatedResponse<T> {
 export interface DashboardStats {
   total_bookmarks: number;
   total_favorites: number;
-  total_unread: number;
-  total_archived: number;
   top_domains: { domain: string; count: number }[];
   top_categories: { category: string; count: number }[];
   recent_bookmarks: Bookmark[];

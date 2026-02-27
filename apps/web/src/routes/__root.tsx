@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet, Navigate } from "@tanstack/react-router";
+import { createRootRoute, Outlet, Navigate, useRouterState } from "@tanstack/react-router";
 import { Layout } from "@/components/layout";
 import { isLoggedIn } from "@/lib/auth";
 
@@ -7,7 +7,7 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  const pathname = window.location.pathname;
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   if (!isLoggedIn() && pathname !== "/login") {
     return <Navigate to="/login" />;

@@ -11,8 +11,6 @@ export const searchRouter = router({
       tags: input.tags,
       domain: input.domain,
       is_favorite: input.is_favorite,
-      is_archived: input.is_archived,
-      is_read: input.is_read,
       limit: input.limit,
       offset: input.offset,
     });

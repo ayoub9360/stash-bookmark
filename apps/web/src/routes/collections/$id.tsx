@@ -36,13 +36,13 @@ function CollectionDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <Link to="/collections">
-          <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" className="flex-shrink-0 mt-0.5"><ArrowLeft className="h-4 w-4" /></Button>
         </Link>
-        <FolderOpen className="h-5 w-5 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">{c.name}</h1>
+        <FolderOpen className="h-5 w-5 text-primary flex-shrink-0 mt-1.5" />
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold sm:text-2xl break-words">{c.name}</h1>
           {c.description && <p className="text-sm text-muted-foreground">{c.description}</p>}
         </div>
       </div>

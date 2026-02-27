@@ -36,6 +36,7 @@ COPY --from=builder /app/packages/db/package.json ./packages/db/
 COPY --from=builder /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=builder /app/packages/parser/dist ./packages/parser/dist
 COPY --from=builder /app/packages/parser/package.json ./packages/parser/
 COPY --from=builder /app/packages/parser/node_modules ./packages/parser/node_modules
