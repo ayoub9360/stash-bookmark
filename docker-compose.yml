@@ -11,6 +11,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-bookmarks}:${POSTGRES_PASSWORD:-bookmarks}@postgres:5432/${POSTGRES_DB:-bookmarks}
       REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
   postgres:
     image: pgvector/pgvector:pg17
     volumes: ["pgdata:/var/lib/postgresql/data"]
