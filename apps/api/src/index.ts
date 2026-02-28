@@ -8,6 +8,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { createDb, runMigrations } from "@stash/db";
 import { appRouter } from "./router/index.js";
 import { createContext } from "./context.js";
+import { createRestRouter } from "./rest.js";
 import { initWorker } from "./worker.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -50,17 +51,21 @@ async function main() {
     cors({
       origin: (origin, callback) => {
         // Allow requests with no origin (e.g. same-origin, curl, mobile apps)
-        if (!origin || allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error("Not allowed by CORS"));
-        }
+        if (!origin) return callback(null, true);
+        // Allow configured origins
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        // Allow Chrome extension origins
+        if (origin.startsWith("chrome-extension://")) return callback(null, true);
+        callback(new Error("Not allowed by CORS"));
       },
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "2mb" }));
   app.use(cookieParser());
+
+  // REST API v1 (for extension + third-party clients)
+  app.use("/api/v1", createRestRouter(db));
 
   // tRPC
   app.use(

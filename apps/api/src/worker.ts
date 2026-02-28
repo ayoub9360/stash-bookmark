@@ -6,6 +6,12 @@ import { bookmarks, collections, bookmarkCollections, type Database } from "@sta
 import { fetchAndParse, sanitize } from "@stash/parser";
 import { analyzeContent, generateEmbedding } from "@stash/ai";
 
+interface JobData {
+  bookmarkId: string;
+  url: string;
+  hasContent?: boolean;
+}
+
 export function initWorker(db: Database) {
   const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
     maxRetriesPerRequest: null,
@@ -14,8 +20,8 @@ export function initWorker(db: Database) {
   const worker = new Worker(
     "bookmark-processing",
     async (job) => {
-      const { bookmarkId, url } = job.data as { bookmarkId: string; url: string };
-      console.log(`Processing bookmark ${bookmarkId}: ${url}`);
+      const { bookmarkId, url, hasContent } = job.data as JobData;
+      console.log(`Processing bookmark ${bookmarkId}: ${url} (hasContent: ${!!hasContent})`);
 
       // Update status to processing
       await db
@@ -24,43 +30,74 @@ export function initWorker(db: Database) {
         .where(eq(bookmarks.id, bookmarkId));
 
       try {
-        // Step 1: Fetch and parse content
-        await job.updateProgress(10);
-        const parsed = await fetchAndParse(url);
+        let title: string | null = null;
+        let description: string | null = null;
+        let content: string | null = null;
+        let domain: string | null = null;
 
-        // Update with parsed content
-        await db
-          .update(bookmarks)
-          .set({
-            title: parsed.title,
-            description: parsed.description,
-            content: parsed.content,
-            html_snapshot: parsed.html ? sanitize(parsed.html) : null,
-            favicon_url: parsed.favicon_url,
-            og_image_url: parsed.og_image_url,
-            domain: parsed.domain,
-            language: parsed.language,
-            published_at: parsed.published_at ? new Date(parsed.published_at) : null,
-            reading_time_min: parsed.reading_time_min,
-            updated_at: new Date(),
-          })
-          .where(eq(bookmarks.id, bookmarkId));
+        if (hasContent) {
+          // Content was provided by the extension — skip fetch, read from DB
+          await job.updateProgress(10);
+          const existing = await db
+            .select({
+              title: bookmarks.title,
+              description: bookmarks.description,
+              content: bookmarks.content,
+              domain: bookmarks.domain,
+            })
+            .from(bookmarks)
+            .where(eq(bookmarks.id, bookmarkId))
+            .limit(1);
 
-        await job.updateProgress(40);
+          if (existing[0]) {
+            title = existing[0].title;
+            description = existing[0].description;
+            content = existing[0].content;
+            domain = existing[0].domain;
+          }
+          await job.updateProgress(40);
+        } else {
+          // Fetch and parse content server-side (existing flow)
+          await job.updateProgress(10);
+          const parsed = await fetchAndParse(url);
+
+          await db
+            .update(bookmarks)
+            .set({
+              title: parsed.title,
+              description: parsed.description,
+              content: parsed.content,
+              html_snapshot: parsed.html ? sanitize(parsed.html) : null,
+              favicon_url: parsed.favicon_url,
+              og_image_url: parsed.og_image_url,
+              domain: parsed.domain,
+              language: parsed.language,
+              published_at: parsed.published_at ? new Date(parsed.published_at) : null,
+              reading_time_min: parsed.reading_time_min,
+              updated_at: new Date(),
+            })
+            .where(eq(bookmarks.id, bookmarkId));
+
+          title = parsed.title;
+          description = parsed.description;
+          content = parsed.content;
+          domain = parsed.domain;
+          await job.updateProgress(40);
+        }
 
         // Track enriched data from LLM (used later for embedding)
         let summary: string | null = null;
         let enrichedTags: string[] = [];
 
         // Step 2: LLM analysis (if content available and API key present)
-        if (parsed.content && process.env.OPENAI_API_KEY) {
+        if (content && process.env.OPENAI_API_KEY) {
           const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
           try {
             const analysis = await analyzeContent(
               openai,
-              parsed.content,
-              parsed.title,
+              content,
+              title,
               url,
             );
 
@@ -123,16 +160,14 @@ export function initWorker(db: Database) {
           }
 
           // Step 3: Generate embedding AFTER LLM so we embed enriched content
-          // Priority order: title > summary > tags > domain > description > content
-          // (truncated to 8000 chars in generateEmbedding — most important signals first)
           try {
             const embeddingParts = [
-              parsed.title,
+              title,
               summary,
               enrichedTags.length > 0 ? enrichedTags.join(", ") : null,
-              parsed.domain,
-              parsed.description,
-              parsed.content,
+              domain,
+              description,
+              content,
             ].filter(Boolean);
 
             const textToEmbed = embeddingParts.join(" — ");
@@ -150,16 +185,12 @@ export function initWorker(db: Database) {
         }
 
         // Step 4: Build weighted search vector
-        // A (highest weight): title, tags — the primary identifiers
-        // B: summary, description — concise metadata
-        // C: domain, url (tokenized) — source identity
-        // D (lowest weight): full content — broad matching
         await db.execute(
           sql`UPDATE bookmarks SET search_vector =
-              setweight(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(array_to_string(tags, ' '), '')), 'A') ||
-              setweight(to_tsvector('english', coalesce(summary, '') || ' ' || coalesce(description, '')), 'B') ||
-              setweight(to_tsvector('english', coalesce(domain, '') || ' ' || regexp_replace(coalesce(url, ''), '[/:._\\-]+', ' ', 'g')), 'C') ||
-              setweight(to_tsvector('english', coalesce(content, '')), 'D')
+              setweight(to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(array_to_string(tags, ' '), '')), 'A') ||
+              setweight(to_tsvector('simple', coalesce(summary, '') || ' ' || coalesce(description, '')), 'B') ||
+              setweight(to_tsvector('simple', coalesce(domain, '') || ' ' || regexp_replace(coalesce(url, ''), '[/:._\\-]+', ' ', 'g')), 'C') ||
+              setweight(to_tsvector('simple', coalesce(content, '')), 'D')
             WHERE id = ${bookmarkId}`,
         );
 
