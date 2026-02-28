@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    expose: ["3000"]
+    ports: ["3000:3000"]
     env_file: .env
     depends_on:
       postgres:

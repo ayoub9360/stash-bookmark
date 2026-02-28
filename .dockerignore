@@ -1,5 +1,7 @@
 node_modules
 dist
+.output
+.wxt
 .git
 .gitignore
 .env
@@ -11,3 +13,5 @@ dist
 README.md
 LICENSE
 launch-posts.md
+docs
+apps/extension

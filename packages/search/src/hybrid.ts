@@ -90,11 +90,11 @@ export async function hybridSearch(
   // Keyword search with parameterized query
   const keywordWhere =
     filters.length > 0
-      ? sql`WHERE ${sql.join(filters, sql` AND `)} AND search_vector @@ plainto_tsquery('english', ${query})`
-      : sql`WHERE search_vector @@ plainto_tsquery('english', ${query})`;
+      ? sql`WHERE ${sql.join(filters, sql` AND `)} AND search_vector @@ plainto_tsquery('simple', ${query})`
+      : sql`WHERE search_vector @@ plainto_tsquery('simple', ${query})`;
 
   const keywordRows = await db.execute<{ id: string; score: number }>(
-    sql`SELECT id, ts_rank('{0.1, 0.2, 0.4, 1.0}', search_vector, plainto_tsquery('english', ${query})) as score
+    sql`SELECT id, ts_rank('{0.1, 0.2, 0.4, 1.0}', search_vector, plainto_tsquery('simple', ${query})) as score
         FROM bookmarks
         ${keywordWhere}
         ORDER BY score DESC
@@ -114,10 +114,10 @@ export async function hybridSearch(
     return { results: [], total: 0 };
   }
 
-  // Fetch full bookmark data with parameterized IN clause
-  const idList = sortedIds.map(([id]) => id);
+  // Fetch full bookmark data with IN clause
+  const idFragments = sortedIds.map(([id]) => sql`${id}::uuid`);
   const bookmarkRows = await db.execute<Record<string, unknown>>(
-    sql`SELECT * FROM bookmarks WHERE id = ANY(${idList}::uuid[])`,
+    sql`SELECT * FROM bookmarks WHERE id IN (${sql.join(idFragments, sql`, `)})`,
   );
 
   const bookmarkMap = new Map<string, Record<string, unknown>>();
