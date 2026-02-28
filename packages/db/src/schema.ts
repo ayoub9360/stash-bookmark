@@ -104,9 +104,19 @@ export const bookmarkCollections = pgTable(
   (table) => [primaryKey({ columns: [table.bookmark_id, table.collection_id] })]
 );
 
+export const apiTokens = pgTable("api_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().default("default"),
+  token_hash: text("token_hash").notNull().unique(),
+  last_used_at: timestamp("last_used_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type BookmarkInsert = typeof bookmarks.$inferInsert;
 export type BookmarkSelect = typeof bookmarks.$inferSelect;
 export type CategoryInsert = typeof categories.$inferInsert;
 export type CategorySelect = typeof categories.$inferSelect;
 export type CollectionInsert = typeof collections.$inferInsert;
 export type CollectionSelect = typeof collections.$inferSelect;
+export type ApiTokenInsert = typeof apiTokens.$inferInsert;
+export type ApiTokenSelect = typeof apiTokens.$inferSelect;

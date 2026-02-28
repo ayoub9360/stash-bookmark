@@ -75,13 +75,24 @@ export async function runMigrations(connectionString: string) {
       )
     `;
 
+    // API tokens table
+    await sql`
+      CREATE TABLE IF NOT EXISTS api_tokens (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name TEXT NOT NULL DEFAULT 'default',
+        token_hash TEXT NOT NULL UNIQUE,
+        last_used_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `;
+
     // Rebuild weighted search_vector for all completed bookmarks
     await sql`
       UPDATE bookmarks SET search_vector =
-        setweight(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(array_to_string(tags, ' '), '')), 'A') ||
-        setweight(to_tsvector('english', coalesce(summary, '') || ' ' || coalesce(description, '')), 'B') ||
-        setweight(to_tsvector('english', coalesce(domain, '') || ' ' || regexp_replace(coalesce(url, ''), '[/:._\\-]+', ' ', 'g')), 'C') ||
-        setweight(to_tsvector('english', coalesce(content, '')), 'D')
+        setweight(to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(array_to_string(tags, ' '), '')), 'A') ||
+        setweight(to_tsvector('simple', coalesce(summary, '') || ' ' || coalesce(description, '')), 'B') ||
+        setweight(to_tsvector('simple', coalesce(domain, '') || ' ' || regexp_replace(coalesce(url, ''), '[/:._\\-]+', ' ', 'g')), 'C') ||
+        setweight(to_tsvector('simple', coalesce(content, '')), 'D')
       WHERE processing_status = 'completed'
     `;
 

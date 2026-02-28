@@ -5,6 +5,7 @@ import { collectionRouter } from "./collection.js";
 import { searchRouter } from "./search.js";
 import { authRouter } from "./auth.js";
 import { dashboardRouter } from "./dashboard.js";
+import { apiTokenRouter } from "./api-token.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -13,6 +14,7 @@ export const appRouter = router({
   collection: collectionRouter,
   search: searchRouter,
   dashboard: dashboardRouter,
+  apiToken: apiTokenRouter,
 });
 
 export type AppRouter = typeof appRouter;
