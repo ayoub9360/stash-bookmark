@@ -522,7 +522,14 @@ function BookmarksPage() {
   );
 
   const searchResults = trpc.search.query.useQuery(
-    { query: searchQuery, limit: visibleCount, offset: 0 },
+    {
+      query: searchQuery,
+      tags: selectedTags.length > 0 ? selectedTags : undefined,
+      domain: selectedDomain,
+      is_favorite: isFavorite,
+      limit: visibleCount,
+      offset: 0,
+    },
     { enabled: searchQuery.length > 0, placeholderData: (prev) => prev },
   );
 
