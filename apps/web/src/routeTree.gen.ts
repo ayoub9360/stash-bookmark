@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AddRouteImport } from './routes/add'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +18,11 @@ import { Route as BookmarksIndexRouteImport } from './routes/bookmarks/index'
 import { Route as CollectionsIdRouteImport } from './routes/collections/$id'
 import { Route as BookmarksIdRouteImport } from './routes/bookmarks/$id'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
   '/login': typeof LoginRoute
+  '/settings': typeof SettingsRoute
   '/bookmarks/$id': typeof BookmarksIdRoute
   '/collections/$id': typeof CollectionsIdRoute
   '/bookmarks/': typeof BookmarksIndexRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
   '/login': typeof LoginRoute
+  '/settings': typeof SettingsRoute
   '/bookmarks/$id': typeof BookmarksIdRoute
   '/collections/$id': typeof CollectionsIdRoute
   '/bookmarks': typeof BookmarksIndexRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
   '/login': typeof LoginRoute
+  '/settings': typeof SettingsRoute
   '/bookmarks/$id': typeof BookmarksIdRoute
   '/collections/$id': typeof CollectionsIdRoute
   '/bookmarks/': typeof BookmarksIndexRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/add'
     | '/login'
+    | '/settings'
     | '/bookmarks/$id'
     | '/collections/$id'
     | '/bookmarks/'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/add'
     | '/login'
+    | '/settings'
     | '/bookmarks/$id'
     | '/collections/$id'
     | '/bookmarks'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/add'
     | '/login'
+    | '/settings'
     | '/bookmarks/$id'
     | '/collections/$id'
     | '/bookmarks/'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AddRoute: typeof AddRoute
   LoginRoute: typeof LoginRoute
+  SettingsRoute: typeof SettingsRoute
   BookmarksIdRoute: typeof BookmarksIdRoute
   CollectionsIdRoute: typeof CollectionsIdRoute
   BookmarksIndexRoute: typeof BookmarksIndexRoute
@@ -123,6 +136,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AddRoute: AddRoute,
   LoginRoute: LoginRoute,
+  SettingsRoute: SettingsRoute,
   BookmarksIdRoute: BookmarksIdRoute,
   CollectionsIdRoute: CollectionsIdRoute,
   BookmarksIndexRoute: BookmarksIndexRoute,

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Bookmark, Home, Bookmark as BookmarkIcon, FolderOpen, Plus, LogOut, Menu, X } from "lucide-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Bookmark, Home, Bookmark as BookmarkIcon, FolderOpen, Plus, LogOut, Menu, X, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { clearLoggedIn } from "@/lib/auth";
 import { trpc } from "@/lib/trpc";
 
@@ -13,6 +14,7 @@ const navItems = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -74,15 +76,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 Add
               </Button>
             </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground"
-              onClick={handleLogout}
-              title="Logout"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground">
+                <User className="h-4 w-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Mobile hamburger */}
@@ -123,9 +132,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Plus className="h-4 w-4" />
                 Add Bookmark
               </Link>
+              <Link
+                to="/settings"
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  pathname === "/settings"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                }`}
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
               <button
                 onClick={handleLogout}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10"
               >
                 <LogOut className="h-4 w-4" />
                 Logout
