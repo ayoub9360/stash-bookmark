@@ -15,12 +15,25 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 
-// Database
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  console.error("DATABASE_URL is required");
+// Database — support DATABASE_URL or individual PG* env vars
+function getDatabaseUrl(): string {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+
+  const host = process.env.PGHOST;
+  const port = process.env.PGPORT ?? "5432";
+  const user = process.env.PGUSER;
+  const password = process.env.PGPASSWORD;
+  const database = process.env.PGDATABASE;
+
+  if (host && user && password && database) {
+    return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${encodeURIComponent(database)}`;
+  }
+
+  console.error("DATABASE_URL or PGHOST/PGUSER/PGPASSWORD/PGDATABASE is required");
   process.exit(1);
 }
+
+const databaseUrl = getDatabaseUrl();
 
 async function main() {
   // Run migrations before starting the server

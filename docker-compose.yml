@@ -9,7 +9,11 @@ services:
       redis:
         condition: service_started
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-bookmarks}:${POSTGRES_PASSWORD:-bookmarks}@postgres:5432/${POSTGRES_DB:-bookmarks}
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER:-bookmarks}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-bookmarks}
+      PGDATABASE: ${POSTGRES_DB:-bookmarks}
       REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379
       TRUST_PROXY: "1"
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
