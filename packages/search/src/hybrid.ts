@@ -79,6 +79,7 @@ export async function hybridSearch(
       sql`SELECT id, 1 - (embedding <=> ${vectorStr}::vector) as score
           FROM bookmarks
           ${semanticWhere}
+          AND 1 - (embedding <=> ${vectorStr}::vector) > 0.25
           ORDER BY embedding <=> ${vectorStr}::vector
           LIMIT 50`,
     );
