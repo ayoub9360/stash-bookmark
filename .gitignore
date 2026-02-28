@@ -4,3 +4,4 @@ dist
 *.tsbuildinfo
 .turbo
 .claude
+launch-posts.md

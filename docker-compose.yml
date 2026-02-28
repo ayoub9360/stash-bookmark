@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    ports: ["3000:3000"]
+    expose: ["3000"]
     env_file: .env
     depends_on:
       postgres:
@@ -11,8 +11,10 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-bookmarks}:${POSTGRES_PASSWORD:-bookmarks}@postgres:5432/${POSTGRES_DB:-bookmarks}
       REDIS_URL: redis://:${REDIS_PASSWORD:-changeme}@redis:6379
-      TRUST_PROXY: ${TRUST_PROXY:-0}
+      TRUST_PROXY: "1"
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      PASSWORD: ${PASSWORD:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   postgres:
     image: pgvector/pgvector:pg17
     volumes: ["pgdata:/var/lib/postgresql/data"]

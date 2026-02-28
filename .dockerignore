@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+*.tsbuildinfo
+.turbo
+.claude
+.vscode
+README.md
+LICENSE
+launch-posts.md

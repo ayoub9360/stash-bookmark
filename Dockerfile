@@ -28,8 +28,13 @@ COPY . .
 RUN pnpm build
 
 # Production
-FROM base AS runner
+FROM node:20-alpine AS runner
+RUN apk add --no-cache curl
 ENV NODE_ENV=production
+ENV TRUST_PROXY=1
+
+WORKDIR /app
+
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/db/dist ./packages/db/dist
 COPY --from=builder /app/packages/db/package.json ./packages/db/
@@ -50,6 +55,11 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/apps/web/dist ./apps/web/dist
+COPY --from=builder /app/package.json ./package.json
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:3000/ || exit 1
+
 CMD ["node", "apps/api/dist/index.js"]
